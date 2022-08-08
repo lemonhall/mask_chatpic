@@ -1,0 +1,105 @@
+<!DOCTYPE html PUBLIC "-//WAPFORUM//DTD XHTML Mobile 1.0//EN" "http://www.wapforum.org/DTD/xhtml-mobile10.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>自动打码</title>
+
+</head>
+<body>
+<input id="img_file" type="file">
+<img id="container" style="width: 100%;margin: 5px;" />
+
+<script type="text/javascript">
+
+
+function postToMyself(blob){
+	//https://developer.mozilla.org/en-US/docs/Web/API/FormData/set
+	var formData = new FormData();
+		formData.set('clipboard', blob, 'clipboard.png');
+
+	const request = new Request('/', {method: 'POST', body:formData});
+
+	const url = request.url;
+	const method = request.method;
+	const credentials = request.credentials;
+	const bodyUsed = request.bodyUsed;
+//https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams
+//真的多是又臭又长，行吧
+	fetch(request)
+	  // Retrieve its body as ReadableStream
+		  .then((response) => {
+		  	if (response.status === 200) {
+			    const reader = response.body.getReader();
+			    return new ReadableStream({
+			      start(controller) {
+			        return pump();
+			        function pump() {
+			          return reader.read().then(({ done, value }) => {
+			            // When no more data needs to be consumed, close the stream
+			            if (done) {
+			              controller.close();
+			              return;
+			            }
+			            // Enqueue the next data chunk into our target stream
+			            controller.enqueue(value);
+			            return pump();
+			          });
+			        }
+			      }
+			    })
+			}else{
+				throw new Error('Something went wrong on API server!');
+			}
+		  })
+		  // Create a new response out of the stream
+		  .then((stream) => new Response(stream))
+		  // Create an object URL for the response
+		  .then((response) => response.blob())
+		  .then((blob) => URL.createObjectURL(blob))
+		  // Update image
+		  .then((url) => document.getElementById("container").src = url )
+		  .catch((err) => console.error(err));
+}
+
+//https://stackoverflow.com/questions/5784352/iphone-file-upload-with-html
+//剪切板是不行的
+var input = document.getElementById("img_file");
+
+input.onchange = (e) => {
+  const [file] = e.target.files
+ //https://stackoverflow.com/questions/33855167/convert-data-file-to-blob
+ //https://developer.mozilla.org/en-US/docs/Web/API/FileReader
+  console.log(file)
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    const blob = new Blob([new Uint8Array(e.target.result)], {type: file.type });
+    console.log(blob);
+    postToMyself(blob)
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+//https://www.techiedelight.com/paste-image-from-clipboard-using-javascript/
+//代码来源
+document.onpaste = function(pasteEvent) {
+    // consider the first item (can be easily extended for multiple items)
+    var item = pasteEvent.clipboardData.items[0];
+    if (item.type.indexOf("image") === 0)
+    {
+        var blob = item.getAsFile();
+ 
+        var reader = new FileReader();
+
+        reader.onload = function(event) {
+            document.getElementById("container").src = event.target.result;
+            //console.log(event.target.result)
+            postToMyself(blob)
+
+        };
+ 
+        reader.readAsDataURL(blob);
+    }
+}
+</script>
+</body>
+</html>
