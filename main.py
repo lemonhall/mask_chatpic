@@ -1,3 +1,5 @@
+#!/root/.venvs/mask_chatpic/bin/python
+
 from typing import Union
 from fastapi import FastAPI,Form,File,UploadFile
 from fastapi.responses import HTMLResponse
